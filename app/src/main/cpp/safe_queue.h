@@ -15,6 +15,7 @@ template<typename T>
 class SafeQueue {
 
     typedef void (*ReleaseCallback)(T *);
+    typedef void (*SyncHandle)(queue<T> &);
 
 public:
     SafeQueue() {
@@ -109,7 +110,7 @@ public:
      * 队列中的元素释放方式
      */
     void clear() {
-        //加锁
+        //先锁起来
         pthread_mutex_lock(&mutex);
 
         unsigned int size = q.size();
@@ -128,6 +129,21 @@ public:
     void setReleaseCallback(ReleaseCallback releaseCallback){
         this->releaseCallback = releaseCallback;
     }
+    void setSyncHandle(SyncHandle syncHandle){
+        this->syncHandle = syncHandle;
+    }
+
+    /**
+     * 同步操作
+     */
+    void sync(){
+        //先锁起来
+        pthread_mutex_lock(&mutex);
+        syncHandle(q);
+
+        //解锁
+        pthread_mutex_unlock(&mutex);
+    }
 
 
 
@@ -137,6 +153,7 @@ private:
     pthread_cond_t cond;
     int work;//标记队列是否工作
     ReleaseCallback releaseCallback;
+    SyncHandle syncHandle;
 };
 
 #endif //FFMPEGPLAYER_SAFE_QUEUE_H

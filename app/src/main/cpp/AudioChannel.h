@@ -18,7 +18,7 @@ extern "C"{
 class AudioChannel : public BaseChannel {
 
 public:
-    AudioChannel(int id, AVCodecContext *codecContext);
+    AudioChannel(int id, AVCodecContext *codecContext,AVRational time_base);
 
     ~AudioChannel();
 
@@ -39,6 +39,7 @@ public:
     int out_buffers_size;
 
 private:
+    SwrContext *swrContext=0;
     pthread_t pid_audio_decode;
     pthread_t pid_audio_play;
     //引擎
