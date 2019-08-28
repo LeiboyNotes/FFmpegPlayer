@@ -27,6 +27,11 @@ public:
     virtual ~BaseChannel() {
         packets.clear();
         frames.clear();
+        if(codecContext){
+            avcodec_close(codecContext);
+            avcodec_free_context(&codecContext);
+            codecContext = 0;
+        }
     }
 
     /**
@@ -59,6 +64,7 @@ public:
     SafeQueue<AVFrame *> frames;
     int id;
     bool isPlaying = 0;
+    //解码器上下文
     AVCodecContext *codecContext;
     AVRational time_base;
     double audio_time;

@@ -20,7 +20,7 @@ extern "C"{
 };
 
 class ZLFFmpeg {
-
+    friend void *task_stop(void *args);
 public:
     ZLFFmpeg(JavaCallHelper *javaCallHelpe,char *dataSource);
 
@@ -34,6 +34,8 @@ public:
     void _start();
     void setRenderCallback(RenderCallback renderCallback);
 
+    void stop();
+
 private:
     JavaCallHelper *javaCallHelper = 0;
     AudioChannel *audioChannel = 0;
@@ -41,6 +43,7 @@ private:
     char *dataSource;
     pthread_t pid_prepare;
     pthread_t pid_start;
+    pthread_t pid_stop;
     bool isPlaying;
     AVFormatContext *formatContext = 0;
     RenderCallback renderCallback;

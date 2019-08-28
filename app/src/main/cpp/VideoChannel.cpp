@@ -91,9 +91,7 @@ void VideoChannel::start() {
 /**
  * 视频解码
  */
-void VideoChannel::stop() {
 
-}
 
 void VideoChannel::video_decode() {
     AVPacket *packet = 0;
@@ -236,4 +234,11 @@ void VideoChannel::setRenderCallback(RenderCallback callback) {
 void VideoChannel::setAudioChannel(AudioChannel *audioChannel) {
     this->audioChannel = audioChannel;
 
+}
+void VideoChannel::stop() {
+    isPlaying =0;
+    packets.setWork(0);
+    frames.setWork(0);
+    pthread_join(pid_video_decode, 0);
+    pthread_join(pid_video_play, 0);
 }

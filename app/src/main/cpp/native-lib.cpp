@@ -93,3 +93,26 @@ Java_com_zl_ffmpegplayer_ZLPlayer_setSurfaceNative(JNIEnv *env, jobject instance
     pthread_mutex_unlock(&mutex);
 
 }
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_zl_ffmpegplayer_ZLPlayer_releaseNative(JNIEnv *env, jobject instance) {
+    pthread_mutex_lock(&mutex);
+    //先释放之前的显示窗口
+    if (window) {
+        ANativeWindow_release(window);
+        window = 0;
+    }
+    pthread_mutex_unlock(&mutex);
+    DELETE(fFmpeg);
+
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_zl_ffmpegplayer_ZLPlayer_stopNative(JNIEnv *env, jobject instance) {
+
+    if (fFmpeg) {
+        fFmpeg->stop();
+    }
+
+
+}

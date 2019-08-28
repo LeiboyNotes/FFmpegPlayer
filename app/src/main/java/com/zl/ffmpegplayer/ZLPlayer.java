@@ -103,6 +103,21 @@ public class ZLPlayer implements SurfaceHolder.Callback {
 
     }
 
+    /**
+     * 资源释放
+     */
+    public void release() {
+        surfaceHolder.removeCallback(this);
+        releaseNative();
+    }
+
+    /**
+     * 停止播放
+     */
+    public void stop() {
+        stopNative();
+    }
+
 
     interface OnPreparedListener {
         void onPrepared();
@@ -115,7 +130,10 @@ public class ZLPlayer implements SurfaceHolder.Callback {
     private native void prepareNative(String dataSource);
     private native void setSurfaceNative(Surface surface);
 
-
     private native void startNative();
+    private native void stopNative();
+    private native void releaseNative();
+
+
 
 }

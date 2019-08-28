@@ -49,6 +49,26 @@ void *task_start(void *args) {
     return 0;//线程执行方法必须返回0！！！！！！！！！！！！！！！！！！！！
 }
 
+//设置为友元函数
+void *task_stop(void *args) {
+    //打开输入
+    ZLFFmpeg *ffmpeg = static_cast<ZLFFmpeg *>(args);
+    ffmpeg->isPlaying = 0;
+    //在主线程，要保证_prepare方法（子线程）执行完再释放（主线程释放）
+    //执行pthread_join 会阻塞主，可能引发ANR
+    pthread_join(ffmpeg->pid_prepare, 0);
+    if (ffmpeg->formatContext) {
+        avformat_close_input(&ffmpeg->formatContext);
+        avformat_free_context(ffmpeg->formatContext);
+        ffmpeg->formatContext = 0;
+    }
+    DELETE(ffmpeg->videoChannel);
+    DELETE(ffmpeg->audioChannel);
+    DELETE(ffmpeg);
+
+    return 0;//线程执行方法必须返回0！！！！！！！！！！！！！！！！！！！！
+}
+
 void ZLFFmpeg::_prepare() {
     formatContext = avformat_alloc_context();
     AVDictionary *dictionary = 0;
@@ -103,14 +123,14 @@ void ZLFFmpeg::_prepare() {
         //判断流类型（音频还是视频？）
         if (codecParameters->codec_type == AVMEDIA_TYPE_AUDIO) {
             //音频
-            audioChannel = new AudioChannel(i,codecContext,time_base);
+            audioChannel = new AudioChannel(i, codecContext, time_base);
         } else if (codecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
             //视频
 
             AVRational frame_rate = stream->avg_frame_rate;
 //            int fps = frame_rate.num/frame_rate.den;
-             int fps = av_q2d(frame_rate);
-            videoChannel = new VideoChannel(i,codecContext,fps,time_base);
+            int fps = av_q2d(frame_rate);
+            videoChannel = new VideoChannel(i, codecContext, fps, time_base);
             videoChannel->setRenderCallback(renderCallback);
         }
 
@@ -125,7 +145,9 @@ void ZLFFmpeg::_prepare() {
     }
 
     //准备好了，反射通知java
-    javaCallHelper->onPrepared(THREAD_CHILD);
+    if (javaCallHelper) {
+        javaCallHelper->onPrepared(THREAD_CHILD);
+    }
 }
 
 /**
@@ -162,8 +184,12 @@ void ZLFFmpeg::_start() {
         /**
          * 内存泄漏   控制packets队列
          */
-        if(videoChannel->packets.size()>100){
-            av_usleep(10*1000);
+        if (videoChannel && videoChannel->packets.size() > 100) {
+            av_usleep(10 * 1000);
+            continue;
+        }
+        if (audioChannel && audioChannel->packets.size() > 100) {
+            av_usleep(10 * 1000);
             continue;
         }
 
@@ -182,9 +208,19 @@ void ZLFFmpeg::_start() {
             }
         } else if (ret == AVERROR_EOF) {
             //表示读完了
+            //判断是否播放完？队列是否为空
+            if (videoChannel->packets.empty() && videoChannel->frames.empty()
+                && audioChannel->packets.empty() && audioChannel->frames.empty()) {
+                //播放完
+                av_packet_free(&packet);
+                break;
+            }
         } else {
-            javaCallHelper->onError(THREAD_CHILD, FFMPEG_READ_PACKETS_FAIL);
+            if (javaCallHelper) {
+                javaCallHelper->onError(THREAD_CHILD, FFMPEG_READ_PACKETS_FAIL);
+            }
             LOGE("读取音视频数据包失败");
+            av_packet_free(&packet);
             break;
         }
     }//end while
@@ -197,5 +233,28 @@ void ZLFFmpeg::_start() {
 void ZLFFmpeg::setRenderCallback(RenderCallback renderCallback) {
     this->renderCallback = renderCallback;
 
+}
+
+/**
+ * 停止播放
+ */
+void ZLFFmpeg::stop() {
+//    isPlaying = 0;
+    javaCallHelper = 0;//阻塞中停止了，还会回调给java
+
+
+    //既然在主线程引发ANR，那么在子线程中去释放
+    pthread_create(&pid_stop, 0, task_stop, this);//创建stop子线程
+//    if (formatContext) {
+//        avformat_close_input(&formatContext);
+//        avformat_free_context(formatContext);
+//        formatContext = 0;
+//    }
+//    if (videoChannel) {
+//        videoChannel->stop();
+//    }
+//    if (audioChannel) {
+//        audioChannel->stop();
+//    }
 }
 //
