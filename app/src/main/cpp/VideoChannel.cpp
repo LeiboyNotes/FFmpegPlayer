@@ -40,9 +40,10 @@ void dropAVFrame(queue<AVFrame *> &q) {
     }
 }
 
-VideoChannel::VideoChannel(int id, AVCodecContext *codecContext, int fps, AVRational time_base)
+VideoChannel::VideoChannel(int id, AVCodecContext *codecContext, int fps, AVRational time_base,
+                           JavaCallHelper *javaCallHelper)
         : BaseChannel(id,
-                      codecContext, time_base) {
+                      codecContext, time_base,javaCallHelper) {
     this->fps = fps;
     packets.setSyncHandle(dropAVPacket);
     frames.setSyncHandle(dropAVFrame);
@@ -181,6 +182,9 @@ void VideoChannel::video_play() {
         if (!audioChannel) {
             //没有音频
             av_usleep(real_delay * 1000000);
+            if(javaCallHelper){
+                javaCallHelper->onProgress(THREAD_CHILD,video_time);
+            }
         } else {
             double audioTime = audioChannel->audio_time;
             //获取音视频时间差
@@ -237,6 +241,7 @@ void VideoChannel::setAudioChannel(AudioChannel *audioChannel) {
 }
 void VideoChannel::stop() {
     isPlaying =0;
+    javaCallHelper = 0;
     packets.setWork(0);
     frames.setWork(0);
     pthread_join(pid_video_decode, 0);

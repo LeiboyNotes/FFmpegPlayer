@@ -18,7 +18,8 @@ extern "C"{
 class AudioChannel : public BaseChannel {
 
 public:
-    AudioChannel(int id, AVCodecContext *codecContext,AVRational time_base);
+    AudioChannel(int id, AVCodecContext *codecContext, AVRational time_base,
+                     JavaCallHelper *javaCallHelper);
 
     ~AudioChannel();
 
@@ -54,6 +55,8 @@ private:
     SLPlayItf bqPlayerPlay = 0;
     //播放器队列
     SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue = 0;
+
+
 };
 
 

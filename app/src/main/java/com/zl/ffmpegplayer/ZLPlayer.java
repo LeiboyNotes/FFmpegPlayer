@@ -53,18 +53,27 @@ public class ZLPlayer implements SurfaceHolder.Callback {
             onErrorListener.onError(errorCode);
         }
     }
+    public void onProgress(int progress) {
+        if (onProgressListener != null) {
+            onProgressListener.onProgress(progress);
+        }
+    }
 
 
-    OnPreparedListener preparedListener;
-    OnErrorListener onErrorListener;
 
-    void setOnErrorListener(OnErrorListener onErrorListener) {
+
+    public void setOnErrorListener(OnErrorListener onErrorListener) {
         this.onErrorListener = onErrorListener;
     }
 
-    void setPreparedListener(OnPreparedListener listener) {
-        this.preparedListener = listener;
+    public void setPreparedListener(OnPreparedListener onPreparedListener) {
+        this.preparedListener = onPreparedListener;
     }
+
+    public void setOnProgressListener(OnProgressListener onProgressListener) {
+        this.onProgressListener = onProgressListener;
+    }
+
 
     public void setSurfaceView(SurfaceView surfaceView) {
         if (surfaceHolder != null) {
@@ -118,6 +127,28 @@ public class ZLPlayer implements SurfaceHolder.Callback {
         stopNative();
     }
 
+    /**
+     * 获取总播放时长
+     * @return
+     */
+    public int getDuration(){
+        return getDurationNative();
+    }
+
+    /**
+     * 播放进度条调整
+     * @param playProgress
+     */
+    public void seekTo(final int playProgress) {
+
+        new Thread(){
+            @Override
+            public void run() {
+                seekToNative(playProgress);
+            }
+        }.start();
+
+    }
 
     interface OnPreparedListener {
         void onPrepared();
@@ -126,6 +157,14 @@ public class ZLPlayer implements SurfaceHolder.Callback {
     interface OnErrorListener {
         void onError(int errorCode);
     }
+    interface OnProgressListener {
+        void onProgress(int progress);
+    }
+
+    private OnPreparedListener preparedListener;
+    private OnErrorListener onErrorListener;
+    private OnProgressListener onProgressListener;
+
 
     private native void prepareNative(String dataSource);
     private native void setSurfaceNative(Surface surface);
@@ -133,6 +172,8 @@ public class ZLPlayer implements SurfaceHolder.Callback {
     private native void startNative();
     private native void stopNative();
     private native void releaseNative();
+    private native int getDurationNative();
+    private native void seekToNative(int playProgress);
 
 
 

@@ -20,12 +20,14 @@ ZLFFmpeg::ZLFFmpeg(JavaCallHelper *javaCallHelper, char *dataSource) {
     this->dataSource = new char[strlen(
             dataSource + 1)];//strlen获取字符串长度   C字符串以\0结尾“hello\0”   java  "hello"
     strcpy(this->dataSource, dataSource);
+    pthread_mutex_init(&seekMutex,0);
 
 }
 
 ZLFFmpeg::~ZLFFmpeg() {
     DELETE(dataSource);
     DELETE(javaCallHelper);
+    pthread_mutex_destroy(&seekMutex);
 }
 
 /**
@@ -93,7 +95,7 @@ void ZLFFmpeg::_prepare() {
         javaCallHelper->onError(THREAD_CHILD, FFMPEG_CAN_NOT_FIND_STREAMS);
         return;
     }
-
+    duration = formatContext->duration / AV_TIME_BASE;
     for (int i = 0; i < formatContext->nb_streams; ++i) {
         //3、、、获取媒体流  音频/视频
         AVStream *stream = formatContext->streams[i];
@@ -123,14 +125,14 @@ void ZLFFmpeg::_prepare() {
         //判断流类型（音频还是视频？）
         if (codecParameters->codec_type == AVMEDIA_TYPE_AUDIO) {
             //音频
-            audioChannel = new AudioChannel(i, codecContext, time_base);
+            audioChannel = new AudioChannel(i, codecContext, time_base, javaCallHelper);
         } else if (codecParameters->codec_type == AVMEDIA_TYPE_VIDEO) {
             //视频
 
             AVRational frame_rate = stream->avg_frame_rate;
 //            int fps = frame_rate.num/frame_rate.den;
             int fps = av_q2d(frame_rate);
-            videoChannel = new VideoChannel(i, codecContext, fps, time_base);
+            videoChannel = new VideoChannel(i, codecContext, fps, time_base, javaCallHelper);
             videoChannel->setRenderCallback(renderCallback);
         }
 
@@ -194,7 +196,9 @@ void ZLFFmpeg::_start() {
         }
 
         AVPacket *packet = av_packet_alloc();
+        pthread_mutex_lock(&seekMutex);
         int ret = av_read_frame(formatContext, packet);
+        pthread_mutex_unlock(&seekMutex);
         if (!ret) {
             //ret为0表示成功
             //判断流类型，是视频还是音频
@@ -257,4 +261,65 @@ void ZLFFmpeg::stop() {
 //        audioChannel->stop();
 //    }
 }
-//
+
+int ZLFFmpeg::getDuration() const {
+    return duration;
+}
+
+void ZLFFmpeg::seekTo(jint playProgress) {
+
+    if (playProgress < 0 || playProgress > duration) {
+        return;
+    }
+
+    if(!audioChannel&&!videoChannel){
+        return;
+    }
+    if(!formatContext){
+        return;
+    }
+    //1、上下文
+    //2、流索引  -1表示选择的默认值
+    //3、要seek到的时间戳
+    //4、seek的方式       AVSEEK_FLAG_BACKWARD：表示seek到请求的s时间戳之前的最靠近的一个关键帧
+
+
+    //先锁起来
+    pthread_mutex_lock(&seekMutex);
+
+    int ret = av_seek_frame(formatContext, -1, playProgress * AV_TIME_BASE, AVSEEK_FLAG_BACKWARD);
+    if (ret < 0) {
+        if (javaCallHelper) {
+            javaCallHelper->onError(THREAD_CHILD, ret);
+        }
+        return;
+    }
+
+    if (audioChannel) {
+        audioChannel->packets.setWork(0);
+        audioChannel->frames.setWork(0);
+        audioChannel->packets.clear();
+        audioChannel->frames.clear();
+
+        //清除数据后，让队列重新工作
+        audioChannel->packets.setWork(1);
+        audioChannel->frames.setWork(1);
+    }
+    if (videoChannel) {
+        videoChannel->packets.setWork(0);
+        videoChannel->frames.setWork(0);
+        videoChannel->packets.clear();
+        videoChannel->frames.clear();
+
+        //清除数据后，让队列重新工作
+        videoChannel->packets.setWork(1);
+        videoChannel->frames.setWork(1);
+    }
+
+    //解锁
+    pthread_mutex_unlock(&seekMutex);
+
+
+}
+
+

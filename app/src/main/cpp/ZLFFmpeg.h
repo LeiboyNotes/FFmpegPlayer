@@ -47,8 +47,14 @@ private:
     bool isPlaying;
     AVFormatContext *formatContext = 0;
     RenderCallback renderCallback;
+    int duration;
+    pthread_mutex_t seekMutex;
+public:
+    int getDuration() const;
+//总播放时长
 
 
+    void  seekTo(jint i);
 };
 
 

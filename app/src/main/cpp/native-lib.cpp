@@ -116,3 +116,21 @@ Java_com_zl_ffmpegplayer_ZLPlayer_stopNative(JNIEnv *env, jobject instance) {
 
 
 }
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_zl_ffmpegplayer_ZLPlayer_getDurationNative(JNIEnv *env, jobject instance) {
+
+    if(fFmpeg){
+        return fFmpeg->getDuration();
+    }
+    return 0;
+
+}extern "C"
+JNIEXPORT void JNICALL
+Java_com_zl_ffmpegplayer_ZLPlayer_seekToNative(JNIEnv *env, jobject instance, jint playProgress) {
+
+    if(fFmpeg){
+        fFmpeg->seekTo(playProgress);
+    }
+
+}
